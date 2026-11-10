@@ -1,0 +1,28 @@
+[package]
+name = "tauri-plugin-move-to-applications"
+version = "0.1.0"
+authors = ["Dash Chat"]
+description = "Moves a macOS Tauri app into /Applications when it runs from a disk image or a translocated copy, so the updater can replace it."
+license = "MIT"
+repository = "https://github.com/dash-chat/tauri-plugin-move-to-applications"
+edition = "2021"
+exclude = ["/dist-js", "/guest-js", "/node_modules"]
+links = "tauri-plugin-move-to-applications"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = { version = "2", default-features = false }
+log = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+libc = "0.2"
+plist = "1"
+security-translocate = "0.2"
+semver = "1"
+tauri-plugin-dialog = "2"
+
+[dev-dependencies]
+tempfile = "3"

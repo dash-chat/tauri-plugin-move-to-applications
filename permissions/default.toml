@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Allows checking whether the app needs moving to Applications, and moving it."
+permissions = ["allow-needs-move", "allow-move-to-applications-folder"]
