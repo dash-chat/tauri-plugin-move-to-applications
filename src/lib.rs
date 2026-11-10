@@ -52,7 +52,8 @@ async fn needs_move<R: Runtime>(app: AppHandle<R>) -> bool {
     }
 }
 
-/// Moves the app into /Applications and relaunches it from there.
+/// Moves the app into /Applications and relaunches it from there. Returns only
+/// on failure, or with `Ok` when the user cancels the administrator prompt.
 #[tauri::command]
 async fn move_to_applications_folder<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     // The copy and the administrator prompt block.

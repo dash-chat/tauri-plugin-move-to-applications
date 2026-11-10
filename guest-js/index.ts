@@ -5,7 +5,10 @@ export function needsMove(): Promise<boolean> {
 	return invoke('plugin:move-to-applications|needs_move');
 }
 
-/** Moves the app into /Applications and relaunches it from there. */
+/**
+ * Moves the app into /Applications and relaunches it from there. Resolves only
+ * if the user cancels the administrator password prompt.
+ */
 export function moveToApplicationsFolder(): Promise<void> {
 	return invoke('plugin:move-to-applications|move_to_applications_folder');
 }

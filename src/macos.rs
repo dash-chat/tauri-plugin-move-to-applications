@@ -66,18 +66,23 @@ pub fn offer_move<R: Runtime>(window: &Window<R>, prompt: &Prompt) {
 
 /// Copies the app into /Applications, asking for an administrator password if
 /// that takes one, then exits and relaunches it from there. Returns only on
-/// failure.
+/// failure, or with `Ok` when the user cancels the administrator prompt.
 ///
 /// The original stays where it is: removing it from Downloads would make macOS
 /// ask the user to let the app into their Downloads folder.
 pub fn move_to_applications_folder<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    if !needs_move(app) {
+        return Err("the app already runs from where it can update itself".into());
+    }
     let bundle = current_bundle(app).ok_or("the app is not running from a bundle")?;
     let name = bundle.file_name().ok_or("the bundle has no name")?;
     let dest = Path::new(APPLICATIONS).join(name);
 
     // A quarantined copy there would be translocated just the same.
-    if is_quarantined(&dest) || !has_same_or_newer_version(&dest, &app.package_info().version) {
-        install(&bundle, &dest)?;
+    let installing =
+        is_quarantined(&dest) || !has_same_or_newer_version(&dest, &app.package_info().version);
+    if installing && !install(&bundle, &dest)? {
+        return Ok(());
     }
 
     // An app opened from a disk image is translocated too.
@@ -156,10 +161,11 @@ fn has_same_or_newer_version(dest: &Path, version: &semver::Version) -> bool {
 }
 
 /// Copies the app to `dest` as the user, or as an administrator if
-/// /Applications only lets administrators write to it.
-fn install(bundle: &Path, dest: &Path) -> Result<(), String> {
+/// /Applications only lets administrators write to it. Returns `false` when
+/// the user cancels the administrator prompt.
+fn install(bundle: &Path, dest: &Path) -> Result<bool, String> {
     match install_as_user(bundle, dest) {
-        Ok(()) => Ok(()),
+        Ok(()) => Ok(true),
         Err(err) if err.kind() == io::ErrorKind::PermissionDenied => {
             log::info!("Copying to Applications needs an administrator: {err}");
             install_as_admin(bundle, dest)
@@ -248,7 +254,7 @@ fn c_path(path: &Path) -> io::Result<CString> {
     CString::new(path.as_os_str().as_bytes()).map_err(io::Error::other)
 }
 
-fn install_as_admin(bundle: &Path, dest: &Path) -> Result<(), String> {
+fn install_as_admin(bundle: &Path, dest: &Path) -> Result<bool, String> {
     let command = format!(
         "/bin/sh -c {} sh {} {}",
         shell_quote(INSTALL_AS_ADMIN),
@@ -263,10 +269,12 @@ fn install_as_admin(bundle: &Path, dest: &Path) -> Result<(), String> {
         ))
         .output()
         .map_err(|err| err.to_string())?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    match output.status.success() {
+        true => Ok(true),
+        // AppleScript's "User canceled." error.
+        false if error.ends_with("(-128)") => Ok(false),
+        false => Err(error),
     }
 }
 
